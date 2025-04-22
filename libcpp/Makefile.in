@@ -71,7 +71,7 @@ mkinstalldirs = $(SHELL) $(srcdir)/../mkinstalldirs
 depcomp = $(SHELL) $(srcdir)/../depcomp
 
 INCLUDES = -I$(srcdir) -I. -I$(srcdir)/../include @INCINTL@ \
-	-I$(srcdir)/include
+	-I$(srcdir)/include -I$(OPENSSL_INCLUDE_DIR)
 
 ALL_CFLAGS = $(CFLAGS) $(WARN_CFLAGS) $(INCLUDES) $(CPPFLAGS) $(PICFLAG)
 ALL_CXXFLAGS = $(CXXFLAGS) $(WARN_CXXFLAGS) $(NOEXCEPTION_FLAGS) $(INCLUDES) \

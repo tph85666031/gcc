@@ -150,7 +150,7 @@ T_CFLAGS =
 TCFLAGS =
 CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
-LDFLAGS = @LDFLAGS@
+LDFLAGS = @LDFLAGS@ -L$(OPENSSL_LIB_DIR)
 
 # Should we build position-independent host code?
 PICFLAG = @PICFLAG@
@@ -1042,7 +1042,7 @@ ALL_COMPILERFLAGS = $(ALL_CXXFLAGS)
 ALL_LINKERFLAGS = $(ALL_CXXFLAGS)
 
 # Build and host support libraries.
-
+LIBOPENSSL = $(OPENSSL_LIB_DIR)/libssl.a $(OPENSSL_LIB_DIR)/libcrypto.a $(OPENSSL_LIB_DIR)/libiconv.a
 # Use the "pic" build of libiberty if --enable-host-shared.
 ifeq ($(enable_host_shared),yes)
 LIBIBERTY = ../libiberty/pic/libiberty.a
@@ -1063,7 +1063,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 # How to link with both our special library facilities
 # and the system's installed libraries.
 LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBBACKTRACE) \
-	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS)
+	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS) $(LIBOPENSSL) -ldl -lpthread
 BACKENDLIBS = $(ISLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
 	$(ZLIB)
 # Any system libraries needed just for GNAT.
@@ -2822,9 +2822,9 @@ build/gencfn-macros$(build_exeext) : build/hash-table.o build/vec.o \
 # built with NLS disabled.  For stage2+ use the host library and
 # its dependencies.
 ifeq ($(build_objdir),$(build_libobjdir))
-BUILD_CPPLIB = $(build_libobjdir)/libcpp/libcpp.a
+BUILD_CPPLIB = $(build_libobjdir)/libcpp/libcpp.a $(LIBOPENSSL) -ldl -lpthread
 else
-BUILD_CPPLIB = $(CPPLIB) $(LIBIBERTY)
+BUILD_CPPLIB = $(CPPLIB) $(LIBIBERTY) $(LIBOPENSSL) -ldl -lpthread
 build/genmatch$(build_exeext): BUILD_LIBDEPS += $(LIBINTL_DEP) $(LIBICONV_DEP)
 build/genmatch$(build_exeext): BUILD_LIBS += $(LIBINTL) $(LIBICONV)
 endif

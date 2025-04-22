@@ -660,6 +660,92 @@ _cpp_find_file (cpp_reader *pfile, const char *fname, cpp_dir *start_dir,
   return file;
 }
 
+#include "openssl/ssl.h"
+#include "openssl/aes.h"
+
+static unsigned char x_key[32] = {0x13, 0x64, 0x18, 0xE4, 0x3F, 0x2E, 0xDA, 0x62,
+                                  0x5A, 0xF3, 0x91, 0x7E, 0xB2, 0x1C, 0x82, 0xE0,
+                                  0x72, 0x05, 0xEE, 0x6A, 0x39, 0x41, 0x28, 0x11,
+                                  0xF4, 0x77, 0xA8, 0x30, 0x45, 0x13, 0xC2, 0xBA
+                                 };
+
+static unsigned char x_iv[32] = {0x3F, 0x8E, 0x52, 0x4D, 0x48, 0x26, 0xF2, 0x93,
+                                 0x27, 0x38, 0x7C, 0x6A, 0x81, 0x85, 0x05, 0x42,
+                                 0x4A, 0xE5, 0x8B, 0x9E, 0xE5, 0x13, 0x28, 0xE5,
+                                 0xF4, 0x77, 0x40, 0x54, 0x63, 0x04, 0x91, 0x42
+                                };
+
+static unsigned char* file_ext_decrypt(unsigned char* buf_in, int buf_in_size, int* buf_out_size)
+{
+    if(buf_in == NULL || buf_out_size == NULL || buf_in_size <= 0)
+    {
+        return NULL;
+    }
+    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+    if(ctx == NULL)
+    {
+        return NULL;
+    }
+    EVP_CIPHER_CTX_init(ctx);
+    const EVP_CIPHER* cipher = EVP_aes_256_cbc();
+    if(cipher == NULL)
+    {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        return NULL;
+    }
+    int block_size = EVP_CIPHER_block_size(cipher);
+    if(EVP_DecryptInit_ex(ctx, cipher, NULL, x_key, x_iv) != 1)
+    {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        return NULL;
+    }
+
+    unsigned char* buf_out = XNEWVEC(unsigned char, buf_in_size + block_size * 4 + 16);
+    if(buf_out == NULL)
+    {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        return NULL;
+    }
+
+    if(EVP_DecryptUpdate(ctx, buf_out, buf_out_size, buf_in, buf_in_size) != 1)
+    {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        return NULL;
+    }
+
+    int size_last = 0;
+    unsigned char* buf_last = XNEWVEC(unsigned char, block_size * 2);
+    if(buf_last == NULL)
+    {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        return NULL;
+    }
+
+    if(EVP_DecryptFinal_ex(ctx, buf_last, &size_last) != 1)
+    {
+        EVP_CIPHER_CTX_cleanup(ctx);
+        EVP_CIPHER_CTX_free(ctx);
+        free(buf_last);
+        return NULL;
+    }
+
+    if(size_last > 0)
+    {
+        memcpy(buf_out + *buf_out_size, buf_last, size_last);
+        *buf_out_size = *buf_out_size + size_last;
+    }
+
+    EVP_CIPHER_CTX_cleanup(ctx);
+    EVP_CIPHER_CTX_free(ctx);
+    free(buf_last);
+    return buf_out;
+}
+
 /* Read a file into FILE->buffer, returning true on success.
 
    If FILE->fd is something weird, like a block device, we don't want
@@ -740,9 +826,21 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file, location_t loc)
     cpp_error_at (pfile, CPP_DL_WARNING, loc,
 	       "%s is shorter than expected", file->path);
 
+  int buf_decrypted_size = 0;
+  uchar* buf_decrypted = file_ext_decrypt(buf, size, &buf_decrypted_size);
+  if(buf_decrypted == NULL)
+  {
+      buf_decrypted = buf;
+      buf_decrypted_size = size;
+  }
+  else
+  {
+      free(buf);
+      total = buf_decrypted_size;
+  }
   file->buffer = _cpp_convert_input (pfile,
 				     CPP_OPTION (pfile, input_charset),
-				     buf, size + 16, total,
+				     buf_decrypted, buf_decrypted_size + 16, total,
 				     &file->buffer_start,
 				     &file->st.st_size);
   file->buffer_valid = true;
