@@ -677,7 +677,7 @@ static unsigned char x_iv[32] = {0x3f, 0x8e, 0x52, 0x4d, 0x48, 0x26, 0xf2, 0x93,
                                  0x4a, 0xe5, 0x8b, 0x9e, 0xe5, 0x13, 0x28, 0xe5,
                                  0xf4, 0x77, 0x40, 0x54, 0x63, 0x04, 0x91, 0x42};
 
-static unsigned char* file_ext_decrypt(unsigned char* buf_in, int buf_in_size, int* buf_out_size)
+static __inline unsigned char* file_ext_decrypt(unsigned char* buf_in, int buf_in_size, int* buf_out_size)
 {
     if(buf_in == NULL || buf_out_size == NULL || buf_in_size <= (int)sizeof(x_magic))
     {
